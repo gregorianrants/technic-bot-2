@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 class MotorProtocol(asyncio.Protocol):
     def __init__(self):
@@ -7,6 +8,7 @@ class MotorProtocol(asyncio.Protocol):
         self.loading_bootloader = False
         #TODO add a method for adding and removing motors and make sure we dont get duplicates
         self.motors = []
+        self.line_start_time_stamp = None
 
     def connection_made(self, transport):
         self.transport = transport
@@ -28,13 +30,17 @@ class MotorProtocol(asyncio.Protocol):
     #todo consider getting rid of and by changing the function which is run once there is a motor c
     def running_handler(self,line):
         for motor in self.motors:
-            motor.data_handler(line)
+            motor.data_handler(line,self.line_start_time_stamp)
 
     def data_received(self, data):
         for byte_as_int in data:
-            if byte_as_int==10:
+            if self.line_start_time_stamp==None:
+                self.line_start_time_stamp = time.time()
+                self.buffer.append(byte_as_int)
+            elif byte_as_int==10:
                 self.handler(self.buffer.decode())
                 self.buffer = bytearray(b'')
+                self.line_start_time_stamp=None
             else: 
                 self.buffer.append(byte_as_int)
         pass

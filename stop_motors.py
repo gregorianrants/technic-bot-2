@@ -4,7 +4,7 @@ import time
 left = Motor('C')
 right = Motor('D')
 
-time.sleep(30)
+time.sleep(0.1)
 
 def handle_rotation(value1,value2,value3):
     print(value1,value2,value3)
