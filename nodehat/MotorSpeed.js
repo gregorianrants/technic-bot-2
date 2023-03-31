@@ -36,33 +36,52 @@ class PIController {
 }
 
 class MotorSpeed {
-  constructor(motor, set_point = 40) {
+  constructor(motor) {
     this.motor = motor;
     this.p = 0.01;
     this.k = 0;
     this.d = 0.02;
     this.pid = new PIController(this.p, this.k, this.d);
     //power should probably be passed by previouse behaviour
-    this.power = set_point / 4;
+    this.power = 0;
     this.errors = [];
-    this.set_point = set_point;
+    this._setPoint = 0;
     this.running = false;
     this.update = this.update.bind(this);
   }
 
   update(data) {
     let { speed } = data;
-    let error = speed - this.set_point;
-    console.log("error", error);
+    let error = speed - this.setPoint;
+    //console.log("error", error);
     this.errors.push(error);
     let adjustment = this.pid.get_value(error);
     this.power = this.power - adjustment;
-    this.motor.pwm(this.power);
+    console.log(speed, error, adjustment, this.power);
+    this.motor.pwm = this.power;
   }
 
-  start() {
+  set setPoint(speed) {
+    if (speed < 0) {
+      throw new Error("we havent dealt with going backwards yet");
+    }
+    this._setPoint = speed;
+    console.log("set", this._setPoint);
+  }
+
+  get setPoint() {
+    return this._setPoint;
+  }
+
+  start(setPoint) {
+    if (setPoint < 0) {
+      throw new Error("we havent dealt with going backwards yet");
+    }
+    this.setPoint = setPoint;
+    console.log(this.setPoint);
+    this.power = Math.max(this.motor.pwm, this.setPoint / 4);
     this.running = true;
-    this.motor.pwm(this.power);
+    this.motor.pwm = this.power;
     this.motor.on("encoder", this.update);
   }
 

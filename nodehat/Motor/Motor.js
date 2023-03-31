@@ -1,6 +1,11 @@
 const serial = require("../Serial");
 const { EventEmitter } = require("events");
 const { resolve } = require("path");
+const { MotorSpeed } = require("../MotorSpeed");
+
+MODES = {
+  PWM: "PWM",
+};
 
 class Motor extends EventEmitter {
   constructor(port, serial, direction = 1) {
@@ -20,6 +25,9 @@ class Motor extends EventEmitter {
       console.error(err);
       this.cleanUp();
     });
+    //this.motor_speed = MotorSpeed()
+    this.mode = MODES.PWM;
+    this._pwm = 0;
   }
 
   write(data) {
@@ -38,7 +46,7 @@ class Motor extends EventEmitter {
     return distance;
   }
 
-  getSpeed(aSpeed) {
+  calculateSpeed(aSpeed) {
     const speed = (aSpeed / 360) * this.wheelDiameter;
     return speed;
   }
@@ -53,14 +61,18 @@ class Motor extends EventEmitter {
     return this.serial.write(data);
   }
 
-  pwm(power) {
-    console.log("pwm", power);
+  set pwm(power) {
+    //console.log("pwm", power);
     power = (power * this.direction) / 100;
     if (power > 1 || power < -1) {
-      throw new Error("power must be between -1 and 1");
+      this.emit("error", new Error("power must be between -1 and 1"));
     }
     let data = `pwm; set ${power}`;
-    return this.write(data);
+    return this.write(data).then(() => (this._pwm = power));
+  }
+
+  get pwm() {
+    return this._pwm * 100;
   }
 
   handleData = (line) => {
@@ -70,7 +82,7 @@ class Motor extends EventEmitter {
         [speed, pos, apos] = [speed, pos, apos].map(
           (val) => Number(val) * this.direction
         );
-        speed = this.getSpeed(speed);
+        speed = this.calculateSpeed(speed);
         const data = { portIndex: this.portIndex, speed, pos, apos };
         //console.log(data);
         this.emit("encoder", data);
@@ -81,7 +93,7 @@ class Motor extends EventEmitter {
   };
 
   startDataStream() {
-    let data = `select 0; selrate 100`;
+    let data = `select 0; selrate 10`;
     this.write(data);
     serial.readLine.on("data", this.handleData);
   }
@@ -95,7 +107,7 @@ class Motor extends EventEmitter {
   cleanUp() {
     console.log("in clean");
     this.stopDataStream();
-    return this.pwm(0);
+    this.pwm = 0;
   }
 }
 
